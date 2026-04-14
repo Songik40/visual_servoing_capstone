@@ -44,7 +44,7 @@ class VisualServoNode(Node):
 
     # 뎁스 이미지  call_back 함수
     def depth_callback(self, msg):
-        # 뎁스 데이터는 보통 16비트 정수(16UC1, 단위: mm)로 들어옵니다.
+        # 뎁스 데이터는 보통 16비트 정수(16UC1, 단위: mm)
         self.cv_depth_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="16UC1")
         
     # rgb이미지 call_back 함수
@@ -76,26 +76,26 @@ class VisualServoNode(Node):
                     cmd_msg.angular.z = -float(error_x) * self.kp_x  
                     cmd_msg.angular.y = float(error_y) * self.kp_y   
                     
-                    # 화면 피드백 그리기 (기본)
+                    # 화면 피드백 그리기
                     cv2.rectangle(cv_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     cv2.circle(cv_image, (bx, by), 5, (0, 0, 255), -1) 
                     cv2.circle(cv_image, (cx, cy), 5, (255, 0, 0), -1) 
                     cv2.line(cv_image, (cx, cy), (bx, by), (0, 255, 255), 2)
                     
-                    # 🟢 [추가됨] 뎁스 이미지에서 타겟 중앙점의 거리(Z) 값 추출하기
+                    # 뎁스 이미지에서 타겟 중앙점의 거리(Z) 값 추출하기
                     distance_mm = 0
                     if self.cv_depth_image is not None:
                         # 좌표가 뎁스 이미지 해상도를 벗어나지 않도록 안전장치
                         if 0 <= by < self.cv_depth_image.shape[0] and 0 <= bx < self.cv_depth_image.shape[1]:
-                            # 주의: OpenCV 배열은 [Y축(행), X축(열)] 순서로 읽습니다!
+                            
                             distance_mm = self.cv_depth_image[by, bx]
                             
-                            if distance_mm > 0: # 0이면 측정 실패(사각지대 등)
-                                # 화면에 거리값 글씨 쓰기 (단위: mm)
+                            if distance_mm > 0: # 0이면 측정 실패
+                                
                                 text = f"Dist: {distance_mm} mm"
                                 cv2.putText(cv_image, text, (bx + 10, by - 10), 
                                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                                self.get_logger().info(f"타겟 포착! 오차 X:{error_x} Y:{error_y} | 거리 Z:{distance_mm}mm")
+                                self.get_logger().info(f"타겟 확인... 오차 X:{error_x} Y:{error_y} | 거리 Z:{distance_mm}mm")
                             else:
                                 cv2.putText(cv_image, "Dist: Too Close/Far", (bx + 10, by - 10), 
                                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)

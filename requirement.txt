@@ -1,0 +1,6 @@
+# requirements.txt 내용
+ultralytics
+opencv-python<4.10
+speechrecognition
+pyaudio
+openai

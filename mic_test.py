@@ -9,7 +9,7 @@ def test_airpods_mic():
     with sr.Microphone() as source:
         print("========================================")
         print("에어팟 마이크 세팅 중... (주변 소음 분석 1초)")
-        # 주변 소음을 측정해서 노이즈 캔슬링 기준을 잡습니다. (필수!)
+        # 주변 소음을 측정해서 노이즈 캔슬링 기준 잡기
         r.adjust_for_ambient_noise(source, duration=1)
         
         print("듣는 중...")

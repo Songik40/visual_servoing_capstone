@@ -1,4 +1,4 @@
-# requirements.txt 내용
+# requirements.txt
 ultralytics
 opencv-python<4.10
 speechrecognition

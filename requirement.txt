@@ -1,6 +1,7 @@
 # requirements.txt
 ultralytics
 opencv-python<4.10
+numpy<2.0.0
 speechrecognition
 pyaudio
 openai

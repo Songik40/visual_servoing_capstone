@@ -12,7 +12,7 @@ class VisualServoNode(Node):
     def __init__(self):
         super().__init__('visual_servo_node')
         
-        # 1. 리얼센스 전용 토픽 구독 (이름 변경됨!)
+        # 1. 리얼센스 전용 토픽 구독 
         self.color_sub = self.create_subscription(
             Image, '/camera/camera/color/image_raw', self.color_callback, 10)
         
@@ -37,7 +37,7 @@ class VisualServoNode(Node):
         self.search_angle = 0.0
         self.search_radius = 0.01 
         
-        self.get_logger().info("🔥 RealSense D455 비주얼 서보잉 가동!")
+        self.get_logger().info("RealSense D455...")
 
     def depth_callback(self, msg):
         self.cv_depth_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="16UC1")
@@ -51,7 +51,7 @@ class VisualServoNode(Node):
         target_found = False
         cmd_msg = Twist()
         
-        # 기본적으로 손목 각도(Angular)는 절대 꺾이지 않도록 0으로 꽉 잠금! (인형뽑기 모드)
+        # 기본적으로 손목 각도(Angular)는 꺾이지 않도록 0으로 설정
         cmd_msg.angular.x = 0.0
         cmd_msg.angular.y = 0.0
         cmd_msg.angular.z = 0.0
@@ -75,15 +75,13 @@ class VisualServoNode(Node):
                 self.state = 'SEARCHING'
                 self.get_logger().warn("⚠️ 타겟 상실! 나선형 수색 작전 돌입.")
 
-        # ==========================================
-        # 🤖 상태(State)별 로봇팔 행동 제어
-        # ==========================================
         
+        # State별 로봇팔 행동 제어        
         # [상태 1] 탐색 모드 (Spiral Search)
         if self.state == 'SEARCHING':
             if target_found:
                 self.state = 'SERVOING'
-                self.get_logger().info("🎯 타겟 포착! 추적 시작.")
+                self.get_logger().info("타겟 포착... 추적 시작")
             else:
                 # 손목은 고정한 채, 상하좌우(X, Y)로 평행하게 둥글게 원을 그리며 탐색
                 self.search_angle += 0.1
@@ -97,7 +95,7 @@ class VisualServoNode(Node):
             error_x = bx - cx
             error_y = by - cy
             
-            # 오차를 각속도가 아닌 선속도(Linear)에 곱해서 평행 이동시킴!
+            # 오차를 각속도가 아닌 선속도(Linear)에 곱해서 평행 이동시킴
             cmd_msg.linear.x = -float(error_x) * self.kp_linear
             cmd_msg.linear.y = float(error_y) * self.kp_linear
             
@@ -112,7 +110,7 @@ class VisualServoNode(Node):
                 if distance_mm > 0:
                     cv2.putText(cv_image, f"Z: {distance_mm}mm", (bx+10, by-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
                     
-                    # 호버링 조건: 오차가 15픽셀 이내이고, D455 데드존(400mm)에 근접한 450mm 도달 시 정지!
+                    # 호버링 조건: 오차가 15픽셀 이내이고, D455 데드존(400mm)에 근접한 450mm 도달 시 정지
                     if abs(error_x) < 15 and abs(error_y) < 15 and distance_mm <= 450:
                         self.state = 'HOVERING'
                         self.get_logger().info("✅ 완벽 정렬! Z축 블라인드 드롭(파지) 준비!")
@@ -121,7 +119,7 @@ class VisualServoNode(Node):
         elif self.state == 'HOVERING':
             cmd_msg.linear.x = 0.0
             cmd_msg.linear.y = 0.0
-            cmd_msg.linear.z = -0.05 # 평행 이동 멈추고 수직으로 꽂히기!
+            cmd_msg.linear.z = -0.05 # 평행 이동 멈추고 수직으로
             
             cv2.putText(cv_image, "Mode: BLIND DROP!", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
 

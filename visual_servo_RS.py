@@ -124,8 +124,8 @@ class VisualServoNode(Node):
                 if distance_mm > 0:
                     cv2.putText(cv_image, f"Z: {distance_mm}mm", (self.last_bx+10, self.last_by-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
                     
-                    # 호버링 조건: 오차가 15픽셀 이내이고, D455 데드존(400mm)에 근접한 450mm 도달 시 정지
-                    if abs(error_x) < 15 and abs(error_y) < 15 and distance_mm <= 450:
+                    # 호버링 조건: 오차가 15픽셀 이내이고, D455 데드존(350mm)에 근접한 400mm 도달 시 정지
+                    if abs(error_x) < 15 and abs(error_y) < 15 and distance_mm <= 400:
                         self.state = 'HOVERING'
                         self.get_logger().info("정렬 성공... Z축 블라인드 드롭(파지) 준비")
 

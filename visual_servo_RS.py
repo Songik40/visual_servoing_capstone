@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import TwistStamped
 from cv_bridge import CvBridge
 import cv2
 from ultralytics import YOLO
@@ -20,14 +20,14 @@ class VisualServoNode(Node):
             Image, '/camera/camera/aligned_depth_to_color/image_raw', self.depth_callback, 10)
         
         # 2. 로봇팔 제어 토픽 퍼블리셔
-        self.publisher_ = self.create_publisher(Twist, '/servo_node/delta_twist_cmds', 10)
+        self.publisher_ = self.create_publisher(TwistStamped, '/servo_node/delta_twist_cmds', 10)
         
         self.bridge = CvBridge()
         self.model = YOLO('yolov8n.pt') 
         
         # 제어 게인값 (선속도 전용)
         self.kp_linear = 0.0015
-        self.target_object = 'cell phone'
+        self.target_object = 'mouse'
         
         self.cv_depth_image = None 
         
@@ -57,12 +57,15 @@ class VisualServoNode(Node):
 
         results = self.model(cv_image, verbose=False)
         target_found = False
-        cmd_msg = Twist()
+        cmd_msg = TwistStamped()
+        
+        cmd_msg.header.stamp = self.get_clock().now().to_msg()
+        cmd_msg.header.frame_id = 'base_link' # 로봇 몸통 기준 제어
         
         # 기본적으로 손목 각도(Angular)는 꺾이지 않도록 0으로
-        cmd_msg.angular.x = 0.0
-        cmd_msg.angular.y = 0.0
-        cmd_msg.angular.z = 0.0
+        cmd_msg.twist.angular.x = 0.0
+        cmd_msg.twist.angular.y = 0.0
+        cmd_msg.twist.angular.z = 0.0
 
         for r in results:
             boxes = r.boxes
@@ -94,11 +97,11 @@ class VisualServoNode(Node):
                 self.state = 'SERVOING'
                 self.get_logger().info("타겟 포착... 추적 시작")
             else:
-                # 손목은 고정한 채, 상하좌우(X, Y)로 평행하게 둥글게 원을 그리며 탐색
+                # 손목은 고정하고, 상하좌우(X, Y)로 평행하게 둥글게 원을 그리며 탐색
                 self.search_angle += 0.1
                 self.search_radius += 0.0005 
-                cmd_msg.linear.x = self.search_radius * math.cos(self.search_angle)
-                cmd_msg.linear.y = self.search_radius * math.sin(self.search_angle)
+                cmd_msg.twist.linear.x = self.search_radius * math.cos(self.search_angle)
+                cmd_msg.twist.linear.y = self.search_radius * math.sin(self.search_angle)
                 cv2.putText(cv_image, "Mode: SEARCHING", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 165, 255), 2)
 
         # [상태 2] 추적 모드 (Visual Servoing)
@@ -107,8 +110,8 @@ class VisualServoNode(Node):
             error_y = self.last_by - cy
             
             # 오차를 각속도가 아닌 선속도(Linear)에 곱해서 평행 이동
-            cmd_msg.linear.x = -float(error_x) * self.kp_linear
-            cmd_msg.linear.y = float(error_y) * self.kp_linear
+            cmd_msg.twist.linear.x = -float(error_x) * self.kp_linear
+            cmd_msg.twist.linear.y = float(error_y) * self.kp_linear
             
             cv2.rectangle(cv_image, (self.last_x1, self.last_y1), (self.last_x2, self.last_y2), (0, 255, 0), 2)
             cv2.line(cv_image, (cx, cy), (self.last_bx, self.last_by), (0, 255, 255), 2)
@@ -128,9 +131,9 @@ class VisualServoNode(Node):
 
         # [상태 3] 호버링 및 파지 (Blind Drop)
         elif self.state == 'HOVERING':
-            cmd_msg.linear.x = 0.0
-            cmd_msg.linear.y = 0.0
-            cmd_msg.linear.z = -0.05 # 평행 이동 멈추고 수직으로 
+            cmd_msg.twist.linear.x = 0.0
+            cmd_msg.twist.linear.y = 0.0
+            cmd_msg.twist.linear.z = -0.05 # 평행 이동 멈추고 수직으로 
             
             cv2.putText(cv_image, "Mode: BLIND DROP...", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
 

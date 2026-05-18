@@ -36,7 +36,7 @@ class VisualServoNode(Node):
         # ########## [수정됨: 타겟 및 뎁스 파라미터 변경] 시작 ##########
         # 기존: self.target_object = 'mouse'
         self.target_object = 'bottle'
-        self.target_depth = 150.0  # 물병 앞 15cm(150mm)에서 Hovering 정지
+        self.target_depth = 350.0  # 물병 앞 15cm(150mm)에서 Hovering 정지
         self.blind_forward_count = 0  # Blind Grasp 시 프레임 카운터
         # ########## [수정됨: 타겟 및 뎁스 파라미터 변경] 끝 ##########
 

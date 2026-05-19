@@ -37,7 +37,7 @@ class VisualServoNode(Node):
         # 기존: self.target_object = 'mouse'
         self.target_object = 'bottle'
         self.target_depth = 350.0  # 물병 앞 15cm(150mm)에서 Hovering 정지
-        self.blind_forward_count = 0  # Blind Grasp 시 프레임 카운터
+        # self.blind_forward_count = 0  # Blind Grasp 시 프레임 카운터
         # ########## [수정됨: 타겟 및 뎁스 파라미터 변경] 끝 ##########
 
         self.cv_depth_image = None
@@ -191,33 +191,26 @@ class VisualServoNode(Node):
                     self.state = 'HOVERING'
                     self.get_logger().info("정렬 성공... HOVERING 및 직진 파지 진입")
 
-        # ── [상태 3 & 4] HOVERING 및 BLIND GRASP ────────────────────────
-        # ########## [수정됨: HOVERING 이후 오픈루프 직진 파지 로직 추가] 시작 ##########
+       # ── [상태 3] HOVERING ───────────────────────────────────────────
+        # ########## [수정됨: 직진 파지(Blind Grasp) 주석 처리 및 Hovering 대기] 시작 ##########
         elif self.state == 'HOVERING':
-            self.blind_forward_count += 1
-            
-            # 약 2초(60프레임) 동안 5cm/s 속도로 Z축 직진 (물병 몸통으로 전진)
-            if self.blind_forward_count < 60:
-                cmd_msg.twist.linear.x = 0.0
-                cmd_msg.twist.linear.y = 0.0
-                cmd_msg.twist.linear.z = 0.05  # 앞으로 천천히 밀어넣기
-                cv2.putText(cv_image, "Mode: BLIND FORWARD", (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 3)
-            else:
-                # 전진 완료 후 완전 정지 상태로 전환
-                cmd_msg.twist.linear.x = 0.0
-                cmd_msg.twist.linear.y = 0.0
-                cmd_msg.twist.linear.z = 0.0
-                self.state = 'GRASPING'
-                cv2.putText(cv_image, "Mode: GRASPING (STOP)", (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 3)
-                self.get_logger().info("★★★ 직진 완료! 그리퍼를 닫으십시오 ★★★")
-
-        elif self.state == 'GRASPING':
-            # 정지 상태 유지 (I/O 컨트롤러로 그리퍼 닫기 명령을 내릴 타이밍)
+            # 30cm 앞에서 정렬이 완료된 상태. 현재 위치를 계속 유지(Standby)합니다.
             cmd_msg.twist.linear.x = 0.0
             cmd_msg.twist.linear.y = 0.0
             cmd_msg.twist.linear.z = 0.0
-            cv2.putText(cv_image, "Mode: GRASPING (STOP)", (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 3)
-        # ########## [수정됨: HOVERING 이후 오픈루프 직진 파지 로직 추가] 끝 ##########
+            cv2.putText(cv_image, "Mode: HOVERING (30cm STANDBY)", (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 3)
+            
+            # 차후 파지 로직을 부활시킬 때는 아래 주석을 풀고 사용하십시오.
+            """
+            self.blind_forward_count += 1
+            if self.blind_forward_count < 110:
+                cmd_msg.twist.linear.z = 0.10  # 속도 조절 필요
+                cv2.putText(cv_image, "Mode: BLIND FORWARD", (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 3)
+            else:
+                cmd_msg.twist.linear.z = 0.0
+                self.state = 'GRASPING'
+            """
+        # ########## [수정됨: 직진 파지(Blind Grasp) 주석 처리 및 Hovering 대기] 끝 ##########
 
         # warmup + 안전 가드 + publish
         self.frame_count += 1

@@ -138,6 +138,7 @@ class VisualServoNode(Node):
             error_x = self.last_bx - cx
             error_y = self.last_by - cy
             wrist3_err = self.q6 - self.wrist3_target
+            print(f"📊 [제어 모니터링] X오차: {error_x:+d}px | Y오차: {error_y:+d}px")
 
             cv2.rectangle(cv_image, (self.last_x1, self.last_y1), (self.last_x2, self.last_y2), (0,255,0), 2)
             cv2.line(cv_image, (cx, cy), (self.last_bx, self.last_by), (0,255,255), 2)

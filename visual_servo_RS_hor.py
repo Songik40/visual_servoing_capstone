@@ -229,8 +229,10 @@ class VisualServoNode(Node):
                 lin.z = float(np.clip(lin.z, -self.max_linear, self.max_linear))
                 self.publisher_.publish(cmd_msg)
 
-        cv2.imshow("RealSense VLA", cv_image)
-        cv2.waitKey(1)
+        error_x = target_x - center_x  # 중심점과의 픽셀 오차 계산
+        print(f"🎯 타겟 포착! 수평 오차(Error X): {error_x:+d} px")
+        # cv2.imshow("RealSense VLA", cv_image)
+        # cv2.waitKey(1)
 
 def main(args=None):
     rclpy.init(args=args)

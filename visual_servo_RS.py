@@ -21,7 +21,7 @@ class VisualServoNode(Node):
         self.joint_sub = self.create_subscription(
             JointState, '/joint_states', self.joint_callback, 10)
 
-        # 💡 [추가됨: CCTV에서 보내는 목표 위치(DESK or FLOOR) 상태 구독]
+        # CCTV에서 보내는 목표 위치(DESK / FLOOR / BED) 상태 구독
         self.target_sub = self.create_subscription(
             PointStamped, '/target_bottle_position', self.target_callback, 10)
 
@@ -36,13 +36,9 @@ class VisualServoNode(Node):
         self.max_linear = 0.1
         self.max_angular = 0.3
         self.search_radius_max = 0.04
-        
-        # ########## [수정됨: 타겟 및 뎁스 파라미터 변경] 시작 ##########
-        # 기존: self.target_object = 'mouse'
+
         self.target_object = 'bottle'
         self.target_depth = 350.0  # 물병 앞 35cm(350mm)에서 Hovering 정지
-        # self.blind_forward_count = 0  # Blind Grasp 시 프레임 카운터
-        # ########## [수정됨: 타겟 및 뎁스 파라미터 변경] 끝 ##########
 
         self.cv_depth_image = None
 
@@ -75,7 +71,7 @@ class VisualServoNode(Node):
     def target_callback(self, msg):
         if msg.header.frame_id == "DESK":
             self.grasp_mode = 'HOR'
-        elif msg.header.frame_id == "FLOOR":
+        elif msg.header.frame_id in ("FLOOR", "BED"):
             self.grasp_mode = 'VER'
 
     def joint_callback(self, msg):
@@ -142,7 +138,7 @@ class VisualServoNode(Node):
                     cmd_msg.twist.linear.z = 0.0
                     cv2.putText(cv_image, "Mode: HOR SEARCHING (PAN)", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,165,255), 2)
                 else:
-                    # 바닥 (수직): 나선형(Spiral) 스윕 탐색
+                    # 바닥/침대 (수직): 나선형(Spiral) 스윕 탐색
                     self.search_angle += 0.1
                     self.search_radius = min(self.search_radius + 0.0005, self.search_radius_max)
                     cmd_msg.twist.linear.x = self.search_radius * math.cos(self.search_angle)
@@ -163,7 +159,7 @@ class VisualServoNode(Node):
             if self.grasp_mode == 'HOR':
                 # 🚀 [수평 모드 (책상)] WRIST -> X -> Y -> Z 순차 정렬
                 cv2.putText(cv_image, f"Mode: HOR SERVOING [{self.servo_phase}]", (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
-                
+
                 if self.servo_phase == 'WRIST':
                     cmd_msg.twist.angular.z = float(np.clip(-self.kp_wrist3 * wrist3_err, -self.max_angular, self.max_angular))
                     cv2.putText(cv_image, f"wrist3_err: {wrist3_err:+.3f} rad", (50,130), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200,200,0), 2)
@@ -200,41 +196,38 @@ class VisualServoNode(Node):
                         self.hover_stable_count = 0
                         self.state = 'HOVERING'
                         self.get_logger().info("HOR 정렬 성공... HOVERING 및 파지 준비")
-                        
+
             elif self.grasp_mode == 'VER':
-                # 🚀 [수직 모드 (바닥)] X, Y 동시 정렬 (선속도 매핑)
+                # 🚀 [수직 모드 (바닥/침대)] X, Y 동시 정렬
                 cv2.putText(cv_image, "Mode: VER SERVOING", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                 cmd_msg.twist.linear.x = -float(error_x) * self.kp_linear
                 cmd_msg.twist.linear.y = float(error_y) * self.kp_linear
-                
+
                 if self.cv_depth_image is not None and 0 <= self.last_by < height and 0 <= self.last_bx < width:
                     distance_mm = self.cv_depth_image[self.last_by, self.last_bx]
                     if distance_mm > 0:
                         cv2.putText(cv_image, f"Z: {distance_mm}mm", (50, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
-                        # 오차 15픽셀 이내, 고도 260mm 이하 도달 시 호버링 전환
                         if abs(error_x) < 15 and abs(error_y) < 15 and distance_mm <= 260:
                             self.hover_stable_count += 1
                         else:
                             self.hover_stable_count = 0
-                            
+
                         if self.hover_stable_count >= 10:
                             self.hover_stable_count = 0
                             self.state = 'HOVERING'
                             self.get_logger().info("VER 정렬 완료... BLIND DROP 시작")
 
-       # ── [상태 3] HOVERING ───────────────────────────────────────────
+        # ── [상태 3] HOVERING ───────────────────────────────────────────
         elif self.state == 'HOVERING':
             if self.grasp_mode == 'HOR':
-                # 수평: 30cm 앞에서 정렬 완료 후 Standby (기존 로직 유지)
                 cmd_msg.twist.linear.x = 0.0
                 cmd_msg.twist.linear.y = 0.0
                 cmd_msg.twist.linear.z = 0.0
                 cv2.putText(cv_image, "Mode: HOR HOVERING (STANDBY)", (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 3)
             else:
-                # 수직: Z축 아래로 천천히 하강 (Blind Drop)
                 cmd_msg.twist.linear.x = 0.0
                 cmd_msg.twist.linear.y = 0.0
-                cmd_msg.twist.linear.z = -0.05 # 아래로 하강
+                cmd_msg.twist.linear.z = -0.05  # 아래로 하강
                 cv2.putText(cv_image, "Mode: VER BLIND DROP", (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 3)
 
         # warmup + 안전 가드 + publish
@@ -254,8 +247,6 @@ class VisualServoNode(Node):
                 lin.z = float(np.clip(lin.z, -self.max_linear, self.max_linear))
                 self.publisher_.publish(cmd_msg)
 
-        # error_x = target_x - center_x  # 중심점과의 픽셀 오차 계산
-        # print(f"🎯 타겟 포착! 수평 오차(Error X): {error_x:+d} px")
         cv2.imshow("RealSense VLA", cv_image)
         cv2.waitKey(1)
 
